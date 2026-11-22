@@ -191,6 +191,27 @@ copy the auth config into a private, Git-ignored directory if needed, and give
 this Compose project its own writable prefix and AppData paths. Never mount the
 same active prefix writable into two containers.
 
+For a separate checkout that reuses existing inputs, set `CHIV_GAME`, `CLI_DIR`,
+`LOCAL_REGISTRY`, `PROTON_DIR`, and `COMPAT_CLIENT_DIR` in its private `.env` to
+the compatible existing paths. Copy writable state into this checkout only
+once, into new, empty, Git-ignored directories:
+
+```bash
+install -d -m 700 state/prefix state/appdata legendary-config
+cp -a /path/to/existing/prefix/. state/prefix/
+cp -a /path/to/existing/appdata/. state/appdata/
+cp -a /path/to/existing/legendary-config/. legendary-config/
+chmod 700 state/prefix state/appdata legendary-config
+```
+
+Set `CHIV_PREFIX=./state/prefix`, `CHIV_LOCALAPPDATA=./state/appdata`, and
+`LEGENDARY_CONFIG=./legendary-config` in `.env`. Confirm the source directories
+are the ones intended before copying; never copy into an existing state
+directory or expose the resulting auth copy. Set distinct `CONTAINER_NAME` and
+`IMAGE_NAME` values. The game/tool inputs remain mounted read-only. Check host
+ports before launch; host networking prevents running another instance on those
+same ports at the same time.
+
 Host networking means container/image names do not isolate network ports.
 Before starting, inspect existing containers and host listeners. Do not start
 this service while another service is listening on the configured game, ping,
@@ -293,6 +314,21 @@ The equivalent direct commands are `docker compose up --build` and
 `docker compose stop`. Avoid `docker compose down -v` or deleting `state/`
 unless you deliberately intend to remove persistent data.
 
+### RCON administration
+
+RCON listens on loopback only and should not be exposed through a router or
+public firewall rule. From this repository directory, send one command with:
+
+```bash
+./scripts/rcon.sh servertravel tdm_darkforest
+```
+
+RCON may return no reply even when the game executes a command; the helper hides
+reply contents and reports only the byte count. Verify any important change
+through the server's status/logs. Map travel affects connected players, so
+check the server is safe to change first. Avoid bot commands while a real
+player may be connected.
+
 ## 6. Verify readiness
 
 ### Step 9: check local and external readiness
@@ -386,6 +422,7 @@ these Compose scripts do not manage Samba or its credentials.
 - `scripts/prepare-host.sh`: read-only host prerequisite check.
 - `scripts/check-config.sh`: required config/path preflight.
 - `scripts/start.sh`, `scripts/stop.sh`: Compose lifecycle helpers.
+- `scripts/rcon.sh`: send a single command through the container's loopback RCON.
 - `scripts/verify.sh`: container/process/socket/log snapshot.
 
 Never commit `.env`, Legendary/Heroic credentials, game files, Proton, the
