@@ -17,3 +17,5 @@ logs/
 *credential*
 *.key
 *.token
+__pycache__/
+*.py[cod]

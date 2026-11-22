@@ -43,7 +43,7 @@ services:
         --proton-path /proton/GE-Proton11-11-x86_64/proton
         --compat-data-path /proton-prefix
         --steam-path /proton-compat-client
-        --saved-dir-suffix UnchainedX64
+        --saved-dir-suffix "$$SAVED_DIR_SUFFIX"
         --name "$$SERVER_NAME"
         --starting-map TDM_Courtyard
         --game-port "$$GAME_PORT" --ping-port "$$PING_PORT"
@@ -51,7 +51,7 @@ services:
         --server-browser-backend "$$SERVER_BROWSER_BACKEND"
         --register --no-tui --allow-unstable-plugin --no-plugin-update
         --add-registry local:/opt/local-registry3
-        --dll Chiv2-Community/UnchainedPlugin:v1.0.0-debug.3
+        --dll Chiv2-Community/UnchainedPlugin:v1.0.1
         -- --use-ipv6 -ini:Engine:[SystemSettings]:net.DisableIPv6=0
         -ini:Engine:[SystemSettings]:net.IsIPv6Supported=True
         -ini:Engine:[/Script/OnlineSubsystemUtils.IpNetDriver]:bAllowIPv6Fallback=True
@@ -65,6 +65,7 @@ services:
       DISPLAY: ":${DISPLAY_NUM:-99}"
       DISPLAY_NUM: "${DISPLAY_NUM:-99}"
       SERVER_NAME: "${SERVER_NAME:-x64 EGS CLI server}"
+      SAVED_DIR_SUFFIX: "${SAVED_DIR_SUFFIX:-UnchainedX64}"
       SERVER_ADVERTISE_IP: "${SERVER_ADVERTISE_IP:?Set SERVER_ADVERTISE_IP in .env (the host's stable global IPv6 or advertised IP)}"
       SERVER_BROWSER_BACKEND: "${SERVER_BROWSER_BACKEND:-https://servers.polehammer.net}"
       GAME_PORT: "${GAME_PORT:-7777}"
