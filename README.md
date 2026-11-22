@@ -301,7 +301,6 @@ Run:
 
 ```bash
 ./scripts/verify.sh
-docker compose logs --tail=100
 ```
 
 The helper reports container state/restarts, matching server processes,
@@ -316,6 +315,10 @@ alone does not prove that the server is ready. Confirm all of the following:
   separately from A2S.
 - Public IPv6 tests are made from an IPv6-capable external client, not only the
   host or LAN.
+
+The helper reports only selected readiness-marker presence, not raw log lines.
+Review logs privately if further diagnosis is needed and redact authentication
+data before sharing them.
 
 Useful manual checks:
 
