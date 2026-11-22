@@ -36,13 +36,12 @@ class PreflightTests(unittest.TestCase):
     def test_missing_cli_file_and_wrong_input_type_fail_clearly(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for name in ("game", "cli", "registry", "proton", "compat", "legendary"):
+            for name in ("game", "cli", "proton", "compat", "legendary"):
                 (root / name).mkdir()
             config = {
                 "paths": {
                     "CHIV_GAME": str(root / "game"),
                     "CLI_DIR": str(root / "cli"),
-                    "LOCAL_REGISTRY": str(root / "registry"),
                     "PROTON_DIR": str(root / "proton"),
                     "COMPAT_CLIENT_DIR": str(root / "compat"),
                     "LEGENDARY_CONFIG": str(root / "legendary"),
@@ -62,7 +61,6 @@ class PreflightTests(unittest.TestCase):
             for variable, name in (
                 ("CHIV_GAME", "game"),
                 ("CLI_DIR", "cli"),
-                ("LOCAL_REGISTRY", "registry"),
                 ("PROTON_DIR", "proton"),
                 ("COMPAT_CLIENT_DIR", "compat"),
                 ("LEGENDARY_CONFIG", "legendary"),

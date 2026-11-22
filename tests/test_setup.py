@@ -12,7 +12,6 @@ REQUIRED_FLAGS = [
     "--server-advertise-ip", "2606:4700::1111",
     "--chiv-game", "./game",
     "--cli-dir", "./cli",
-    "--local-registry", "./cli/local-registry3",
     "--proton-dir", "./proton/GE-Proton11-11-x86_64",
     "--compat-client-dir", "./proton/compat-client",
     "--legendary-config", "./legendary-config",
@@ -94,7 +93,6 @@ class SetupTests(unittest.TestCase):
                 "2606:4700::1111",
                 "",  # checkout-local example path
                 "./cli",
-                "./cli/local-registry3",
                 "./proton/GE-Proton11-11-x86_64",
                 "./proton/compat-client",
                 "./legendary-config",

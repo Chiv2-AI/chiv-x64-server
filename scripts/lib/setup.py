@@ -22,7 +22,6 @@ REQUIRED = (
     "SERVER_ADVERTISE_IP",
     "CHIV_GAME",
     "CLI_DIR",
-    "LOCAL_REGISTRY",
     "PROTON_DIR",
     "COMPAT_CLIENT_DIR",
     "LEGENDARY_CONFIG",
@@ -44,7 +43,6 @@ OPTIONAL = (
 DEFAULTS = {
     "CHIV_GAME": "./game",
     "CLI_DIR": "./cli",
-    "LOCAL_REGISTRY": "./cli/local-registry3",
     "PROTON_DIR": "./proton/GE-Proton11-11-x86_64",
     "COMPAT_CLIENT_DIR": "./proton/compat-client",
     "LEGENDARY_CONFIG": "./legendary-config",
@@ -65,7 +63,6 @@ ARGUMENTS = {
     "server_advertise_ip": "SERVER_ADVERTISE_IP",
     "chiv_game": "CHIV_GAME",
     "cli_dir": "CLI_DIR",
-    "local_registry": "LOCAL_REGISTRY",
     "proton_dir": "PROTON_DIR",
     "compat_client_dir": "COMPAT_CLIENT_DIR",
     "legendary_config": "LEGENDARY_CONFIG",

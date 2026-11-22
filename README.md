@@ -5,11 +5,13 @@ using Epic Games Store (EGS) game files, GE-Proton, and
 `UnchainedLauncher.CLI`. It does not emulate x64 on ARM.
 
 The repository supplies Compose/runtime scaffolding, not the game, CLI,
-compatibility client, plugin registry, Proton files, or credentials. The
-selected CLI source and plugin release are documented, but the compatibility
-client input and end-to-end artifact chain are **not yet verified**; review
-[the supported-input and acquisition evidence](docs/development.md) before
-choosing a setup path. You need legitimate access to the EGS game.
+compatibility client, Proton files, or credentials. The pinned UnchainedPlugin
+release is fetched from the launcher's official registry, not supplied here. The
+plugin load and server-registration path is verified on a reference x64
+deployment, but a reproducible from-scratch install (compatibility-client
+provenance and a CLI build) is **not yet complete**; review [the supported-input
+and acquisition evidence](docs/development.md) before choosing a setup path. You
+need legitimate access to the EGS game.
 
 ## Supported configuration
 

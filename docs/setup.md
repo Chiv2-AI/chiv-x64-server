@@ -55,13 +55,16 @@ CLI. Configure the game's compat-data directory to the future `CHIV_PREFIX`,
 launch the imported/installed game once through that runner, and verify
 `CHIV_PREFIX/pfx/system.reg` exists. Do not use an unrelated Windows prefix.
 
-`CLI_DIR` must contain `UnchainedLauncher.CLI`; `COMPAT_CLIENT_DIR` must contain
-the files that CLI build expects (it is not a Steam account); and
-`LOCAL_REGISTRY` must contain the CLI-compatible plugin registry and DLL
-referenced by Compose (currently `Chiv2-Community/UnchainedPlugin:v1.0.1`).
-See [the compatibility record](development.md) for provenance and the
-remaining compatibility-client gap. These inputs are not built,
-authenticated, or downloaded by the setup helper.
+`CLI_DIR` must contain `UnchainedLauncher.CLI`, and `COMPAT_CLIENT_DIR` must
+contain the files that CLI build expects (it is not a Steam account). These
+inputs are not built, authenticated, or downloaded by the setup helper.
+
+The UnchainedPlugin is **not** a host input: Compose pins the public release
+`Chiv2-Community/UnchainedPlugin:v1.0.1`, which the launcher resolves from its
+always-included official registry and downloads on first start (no local
+registry needed). See [the compatibility record](development.md) for the
+verified plugin/registration evidence, the private-build override, and the
+remaining compatibility-client gap.
 
 ## Configure, review, and start
 

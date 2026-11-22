@@ -12,7 +12,6 @@ writing. See `./scripts/setup.sh --help` for exact options.
 | `SERVER_ADVERTISE_IP` | Required | Stable, preferred global IPv6 address, raw (no brackets) |
 | `CHIV_GAME` | Required | Verified EGS game root |
 | `CLI_DIR` | Required | Directory containing `UnchainedLauncher.CLI` |
-| `LOCAL_REGISTRY` | Required | Local plugin registry directory |
 | `PROTON_DIR` | Required | GE-Proton directory containing `proton` |
 | `COMPAT_CLIENT_DIR` | Required | CLI-specific Proton compatibility-client files |
 | `LEGENDARY_CONFIG` | Required | Private host Legendary/EGS config directory; credentials stay here |
@@ -31,6 +30,11 @@ writing. See `./scripts/setup.sh --help` for exact options.
 
 The four ports must be unique and within 1–65535. On host-networked Docker,
 container/image names do not reserve ports. Check for conflicts before launch.
+
+The UnchainedPlugin is not an input here: the pinned public release in
+`docker-compose.yml` is resolved from the launcher's always-included official
+registry and downloaded on first start. To run a private or unreleased plugin
+build instead, see [development evidence](development.md).
 
 ## Paths and permissions
 

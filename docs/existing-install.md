@@ -1,14 +1,15 @@
 # Reusing an existing installation
 
-Reuse is appropriate only when the game, CLI, Proton build, compatibility
-client, and registry are mutually compatible. Their exact compatibility is
-not established by checking that directories are non-empty; see
-[development evidence](development.md).
+Reuse is appropriate only when the game, CLI, Proton build, and compatibility
+client are mutually compatible. Their exact compatibility is not established by
+checking that directories are non-empty; see
+[development evidence](development.md). The UnchainedPlugin is not a reused
+input — the pinned public release is fetched from the official registry.
 
 ## Reuse read-only inputs
 
-The Compose service mounts game, CLI, registry, Proton, compatibility client,
-and Legendary config as host paths. Game/tool inputs are read-only inside the
+The Compose service mounts game, CLI, Proton, compatibility client, and
+Legendary config as host paths. Game/tool inputs are read-only inside the
 container. Set their paths in `.env` rather than copying large files. Verify
 the game with Heroic/Legendary on the host before relying on it. If an update
 is needed, stop the game safely first and update it host-side; do not make the

@@ -15,9 +15,13 @@ against temporary fixtures and do not start containers. Skips are reported
 explicitly.
 
 This page records the evidence behind the host inputs required by the x86_64
-EGS Compose profile. It is a research record, not a claim that a clean install
-or complete server launch has been tested. **No game download, login, bundle
-build, or server launch was performed for this research.**
+EGS Compose profile. The original research was static only. A later
+**reference-deployment validation (2026-11-22)** did launch the server on a
+native x64 host to confirm the plugin resolution and registration path; see
+[Reference deployment validation](#reference-deployment-validation-2026-11-22).
+It is still not a claim that a from-scratch clean install has been reproduced
+end to end — the compatibility-client provenance and a reproducible CLI build
+remain open.
 
 ## Onboarding validation boundary
 
@@ -31,10 +35,10 @@ the offline test suite uses temporary fixture directories and dummy values.
 | Automated offline fixtures | 37 tests passed |
 | Compose semantic config validation | **NOT RUN**; Docker Compose v2.23+ unavailable (4 optional tests skipped) |
 | Real fresh game acquisition / authentication / prefix initialization | **NOT RUN** |
-| CLI source + selected plugin release | Source/release identities selected and documented below; actual build/registry integration **NOT RUN** |
-| Proton compatibility-client input | **BLOCKED / NOT ESTABLISHED**; `--steam-path` contents/source still need real-world setup follow-up |
-| Local game process/readiness | **NOT RUN** |
-| Backend registration / public listing | **NOT RUN** |
+| CLI source + selected plugin release | CLI source route documented below (build **NOT RUN**); the pinned v1.0.1 plugin was downloaded from the official registry and loaded on the reference x64 deployment (2026-11-22) |
+| Proton compatibility-client input | Works in the reference deployment, but a reproducible public source/version is still **NOT ESTABLISHED**; `--steam-path` provenance needs real-world follow-up |
+| Local game process/readiness | Verified on the reference deployment (2026-11-22): game process runs, RCON listens |
+| Backend registration | Server-browser registration succeeded on the reference deployment (2026-11-22); external public-listing visibility **NOT independently checked here** |
 | External IPv6 reachability / gameplay | **NOT RUN** |
 
 The fixture suite proves only the modeled behavior. It is not Compose validation,
@@ -53,7 +57,7 @@ validation is claimed here.
 | Proton compatibility client | `server-cli` Linux workflow consumes a separate `--steam-path` input | `COMPAT_CLIENT_DIR` mounted at `/proton-compat-client`; must contain the client files expected by the CLI, readable by UID 1000 | **Remaining blocker:** no confirmed contents, version, acquisition path, or license/redistribution status. It is not Steam login data. The real-world setup agent must identify and validate this input before claiming a working chain. |
 | Proton prefix | Created by launching the installed EGS game once with the selected Heroic runner and configured compat-data location | `CHIV_PREFIX/pfx/system.reg`; prefix is writable, private, owned/accessibly mapped to UID 1000 | Documented initialization procedure, not executed. Compose mounts this as `/proton-prefix`. Do not copy a Windows prefix or credentials. |
 | Unchained server CLI | [`server-cli` branch CLI README](https://github.com/Chiv2-Community/UnchainedLauncher/tree/server-cli/UnchainedLauncher.CLI); build instructions require .NET 10 SDK; Linux publish additionally needs Rust and `uvx`/`cargo-xwin` | Linux publish output in `CLI_DIR`, including executable `UnchainedLauncher.CLI` and bundled helper; `server --help` must run | Selected source: current observed branch tip `7007d68dae663ec8be65125a72028bb33c3d26b6` (moving branch; pin this revision for the next setup). Build is not performed here. Review upstream license; TBL input must come from an entitled game installation. |
-| Plugin registry and plugin DLL | [UnchainedPlugin v1.0.1 release](https://github.com/Chiv2-Community/UnchainedPlugin/releases/tag/v1.0.1), release commit `2382eee09f11f19b6794e88d73b1e9c10a873945`; [registry metadata](https://github.com/Chiv2-Community/C2ModRegistry/blob/main/dll_db/packages/Chiv2-Community/UnchainedPlugin.json) | Compose selects `Chiv2-Community/UnchainedPlugin:v1.0.1`; local registry must provide that release's DLL and metadata | Selected per operator direction. Registry metadata identifies the DLL SHA-256 as `85cf655d7af84ea9d933c06d05efdb11743ab1d5a93aefeff1e0de474ced469d`. Release history includes IPv6 server support (v1.0.0) and v1.0.1 server-integration updates. The local registry bundle and CLI compatibility are not exercised here; real-world setup must verify them. Review license/redistribution rights before distributing the artifact. |
+| Plugin DLL (UnchainedPlugin) | [UnchainedPlugin v1.0.1 release](https://github.com/Chiv2-Community/UnchainedPlugin/releases/tag/v1.0.1), release commit `2382eee09f11f19b6794e88d73b1e9c10a873945`; [official registry metadata](https://github.com/Chiv2-Community/C2ModRegistry/blob/main/dll_db/packages/Chiv2-Community/UnchainedPlugin.json) | Compose pins `Chiv2-Community/UnchainedPlugin:v1.0.1`; the launcher's always-included official registry resolves and downloads it — **no local registry input** | **Verified** on the reference x64 deployment (2026-11-22): the release asset downloads to SHA-256 `85cf655d7af84ea9d933c06d05efdb11743ab1d5a93aefeff1e0de474ced469d` (size 23342592) matching the registry metadata, the plugin loads, and the server reaches RCON + server-browser registration. Release history includes IPv6 server support (v1.0.0) and v1.0.1 server-integration updates. Review license/redistribution rights before redistributing the artifact. |
 
 The repo image separately installs `legendary-gl==0.21.1` for the CLI's
 container-side EGS argument handling; it does not acquire game files or replace
@@ -145,22 +149,51 @@ required. Verify the published executable with `UnchainedLauncher.CLI server
 --help`. The source procedure is documented but was not built here. Review the
 source repository's license before redistribution.
 
-The CLI README supports local registry specifications (`local:/path`) and
-versioned DLL selection. Compose now references the public `v1.0.1` release
-through the local registry. Its release history records IPv6 support and later
-server-registration changes. This selection is not a substitute for verifying
-the downloaded/local registry contents and running a compatible CLI against
-the IPv6 registration configuration.
+The launcher always includes the official registry (`--add-registry` only adds
+*more*). Because `v1.0.1` is a public release in that registry, Compose simply
+pins it with `--dll Chiv2-Community/UnchainedPlugin:v1.0.1` and the launcher
+downloads it on first start. No `--add-registry local:` / `--no-plugin-update`
+and no operator-supplied registry are used — pinning a public version through a
+duplicate local record instead produces a `Conflicting DLL registry records`
+error, which is why the earlier local-registry flags were removed.
+
+### Running a private or unreleased plugin build
+
+The local-registry mechanism is still the way to run a build that is **not** in
+the official registry (for example a `*-debug` diagnostic build). Add a registry
+and disable auto-update by editing the Compose command (or a Compose override)
+to launch with `--add-registry local:/opt/local-registry3 --no-plugin-update`,
+mount your registry at `/opt/local-registry3`, pre-stage the matching DLL in the
+launcher's plugin cache (`…/AppData/Local/Chivalry 2/unchained/cache/dlls/<dll-sha256>/`),
+and pin `--dll <org>/<id>:<tag>`. Keep the registry tag/hash distinct from any
+official release so records do not conflict.
 
 ### Handoff for the real-world setup agent
 
-Use the documented `server-cli` source revision and the v1.0.1 plugin selection.
-Identify the correct `--steam-path` compatibility-client artifact and its
-source/license, build the CLI, assemble the expected local-registry layout, and
-verify the release DLL hash against the registry metadata. Then perform the
-authorized local integration checks. Do not treat the branch or release choice
-alone as proof that the complete runtime combination works. Any launch must
-account for `--register` and the possibility of public listing.
+The plugin/registry and registration path is resolved and verified (see the
+reference-deployment validation below); the pinned v1.0.1 release comes straight
+from the official registry. What remains is the `--steam-path`
+compatibility-client artifact and a reproducible CLI build: identify the
+compat-client source/license and build the CLI from the documented `server-cli`
+source revision, then re-run the local integration checks. Any launch uses
+`--register` and can publish a listing.
+
+## Reference deployment validation (2026-11-22)
+
+Validated on a native x86_64 Linux host (reusing read-only game/CLI/Proton/
+compat-client inputs and an initialized prefix) with a fresh checkout of this
+repository:
+
+- The pinned `Chiv2-Community/UnchainedPlugin:v1.0.1` was resolved from the
+  official registry and **downloaded** (no local registry): the release asset
+  hashes to SHA-256 `85cf655d7af84ea9d933c06d05efdb11743ab1d5a93aefeff1e0de474ced469d`
+  (size 23342592), matching the public registry metadata.
+- The plugin loaded, applied its patches, and completed its one-time signature
+  scan; the server reached `RCON Listening` and registered a server-browser
+  identity.
+- Not covered here: external public-listing visibility and in-game reachability,
+  a reproducible public compatibility-client source, and a from-scratch CLI
+  build. These remain the open items for a fully reproducible clean install.
 
 ## Wrapper decision and validation boundary
 
@@ -185,12 +218,14 @@ Evidence reviewed on 2026-11-22:
   <https://github.com/Chiv2-Community/C2ModRegistry/blob/main/dll_db/packages/Chiv2-Community/UnchainedPlugin.json>.
 - UnchainedPlugin v1.0.1 release notes and tag/commit:
   <https://github.com/Chiv2-Community/UnchainedPlugin/releases/tag/v1.0.1>.
-- The public registry metadata gives the release asset hash; no DLL was
-  downloaded or independently hashed during this repository update.
+- The public registry metadata gives the release asset hash. During the
+  2026-11-22 reference-deployment validation the v1.0.1 asset was downloaded and
+  independently hashed to the same SHA-256.
 
-No authentication, game downloads, bundle builds, server launches, external
-backend queries, or live registration tests were performed. The selected CLI
-source revision and plugin release are documented, but no local CLI/registry
-bundle was assembled. The `--steam-path` compatibility-client source/content
-remains the explicit external blocker and handoff action for the next
-real-world setup agent. A clean install and full integration remain unverified.
+The original static research performed no authentication, game downloads, bundle
+builds, server launches, or registration tests. The later reference-deployment
+validation (2026-11-22, documented above) launched the server to confirm the
+plugin resolution, load, and server-browser registration path. Still open: the
+`--steam-path` compatibility-client source/content (reproducible public
+provenance) and a reproducible CLI build — the explicit handoff actions for a
+fully verified from-scratch clean install.

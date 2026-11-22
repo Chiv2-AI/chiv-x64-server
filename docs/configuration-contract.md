@@ -14,7 +14,7 @@ Consumers may use the default JSON output or the limited `--udp-ports` and
 `chiv-x64`:
 
 - Identity: service, image, container name, and user.
-- Host paths: `CHIV_GAME`, `CLI_DIR`, `LOCAL_REGISTRY`, `PROTON_DIR`,
+- Host paths: `CHIV_GAME`, `CLI_DIR`, `PROTON_DIR`,
   `COMPAT_CLIENT_DIR`, `LEGENDARY_CONFIG`, `CHIV_PREFIX`, and
   `CHIV_LOCALAPPDATA`, mapped from the canonical bind-mount sources.
 - Runtime settings: game/ping/query/RCON ports, display, advertised address,
@@ -41,9 +41,10 @@ resolver and read-only preflight. It verifies input types/content markers,
 `pfx/system.reg`, mode-bit access as the configured numeric container UID/GID,
 the locally assigned preferred global IPv6 address, configured socket
 collisions, the current service's existing listeners, and its Xvfb process.
-Game-file identity, registry schema/release compatibility, and exact
-compatibility-client contents are explicitly reported as unverified until the
-artifact follow-up (`chiv-4f7.9`) resolves those inputs.
+Game-file identity and exact compatibility-client contents are explicitly
+reported as unverified until the artifact follow-up (`chiv-4f7.9`) resolves
+those inputs. (The plugin is no longer a local input: the pinned public release
+is resolved and downloaded from the launcher's official registry.)
 ACL permissions, missing optional AppData mount sources, inaccessible socket
 ownership, and other unprovable states are reported as unknown with a manual
 check rather than a pass. It does not print private host paths, create missing
@@ -63,8 +64,7 @@ The setup assistant implements this contract:
   writing `.env`.
 - Cancellation and every validation/dependency failure leave `.env` untouched.
 - Required options: `--server-advertise-ip`, `--chiv-game`, `--cli-dir`,
-  `--local-registry`, `--proton-dir`, `--compat-client-dir`, and
-  `--legendary-config`.
+  `--proton-dir`, `--compat-client-dir`, and `--legendary-config`.
 - Optional settings/options: `--server-name`, `--saved-dir-suffix`,
   `--server-browser-backend`,
   `--game-port`, `--ping-port`, `--query-port`, `--rcon-port`,

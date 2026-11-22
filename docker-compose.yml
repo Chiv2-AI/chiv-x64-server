@@ -4,8 +4,11 @@
 #   - the Chivalry 2 game files (CHIV_GAME)
 #   - a GE-Proton build          (PROTON_DIR, COMPAT_CLIENT_DIR)
 #   - the UnchainedLauncher.CLI  (CLI_DIR)
-#   - a plugin registry          (LOCAL_REGISTRY)
 #   - your legendary/EGS config with credentials (LEGENDARY_CONFIG) — never commit it
+#
+# The UnchainedPlugin is NOT supplied here: the pinned public release below is
+# fetched from the launcher's always-included official registry on first start
+# (to run a private/unreleased build instead, see docs/development.md).
 #
 # Copy .env.example to .env and set at least SERVER_ADVERTISE_IP.
 services:
@@ -49,8 +52,7 @@ services:
         --game-port "$$GAME_PORT" --ping-port "$$PING_PORT"
         --query-port "$$QUERY_PORT" --rcon-port "$$RCON_PORT"
         --server-browser-backend "$$SERVER_BROWSER_BACKEND"
-        --register --no-tui --allow-unstable-plugin --no-plugin-update
-        --add-registry local:/opt/local-registry3
+        --register --no-tui --allow-unstable-plugin
         --dll Chiv2-Community/UnchainedPlugin:v1.0.1
         -- --use-ipv6 -ini:Engine:[SystemSettings]:net.DisableIPv6=0
         -ini:Engine:[SystemSettings]:net.IsIPv6Supported=True
@@ -76,7 +78,6 @@ services:
       # Game files and tooling you supply (see README). Marked :? so compose fails fast if unset.
       - "${CHIV_GAME:?Set CHIV_GAME to your Chivalry 2 install}:/game:ro"
       - "${CLI_DIR:?Set CLI_DIR to your UnchainedLauncher.CLI folder}:/opt/cli:ro"
-      - "${LOCAL_REGISTRY:?Set LOCAL_REGISTRY to your local plugin registry}:/opt/local-registry3:ro"
       - "${PROTON_DIR:?Set PROTON_DIR to your GE-Proton build}:/proton/GE-Proton11-11-x86_64:ro"
       - "${COMPAT_CLIENT_DIR:?Set COMPAT_CLIENT_DIR to your Proton compat client}:/proton-compat-client:ro"
       - "${LEGENDARY_CONFIG:?Set LEGENDARY_CONFIG to your legendary/EGS config dir (holds credentials; never commit)}:/opt/legendary"

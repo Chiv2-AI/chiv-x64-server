@@ -28,7 +28,6 @@ def rendered_config(
     volumes = [
         (game, "/game"),
         ("/srv/cli", "/opt/cli"),
-        ("/srv/registry", "/opt/local-registry3"),
         ("/srv/proton", "/proton/GE-Proton11-11-x86_64"),
         ("/srv/compat", "/proton-compat-client"),
         ("/srv/legendary", "/opt/legendary"),
@@ -165,7 +164,6 @@ class ConfigResolverTests(unittest.TestCase):
                 "paths": {
                     "CHIV_GAME": str(root / "missing private path"),
                     "CLI_DIR": str(root),
-                    "LOCAL_REGISTRY": str(root),
                     "PROTON_DIR": str(root),
                     "COMPAT_CLIENT_DIR": str(root),
                     "LEGENDARY_CONFIG": str(root),
@@ -196,7 +194,7 @@ def compose_is_supported():
 @unittest.skipUnless(compose_is_supported(), "Docker Compose v2.23+ is unavailable")
 class ComposeIntegrationTests(unittest.TestCase):
     def _compose_fixture(self, root: Path, game_path: str) -> None:
-        for name in ("cli", "registry", "proton", "compat", "legendary",
+        for name in ("cli", "proton", "compat", "legendary",
                      "prefix", "appdata", "state/prefix", "state/appdata"):
             (root / name).mkdir()
         game = Path(game_path)
@@ -204,7 +202,6 @@ class ComposeIntegrationTests(unittest.TestCase):
         env_lines = [
             "CHIV_GAME='%s'" % game_path,
             "CLI_DIR=%s" % (root / "cli"),
-            "LOCAL_REGISTRY=%s" % (root / "registry"),
             "PROTON_DIR=%s" % (root / "proton"),
             "COMPAT_CLIENT_DIR=%s" % (root / "compat"),
             "LEGENDARY_CONFIG=%s" % (root / "legendary"),
@@ -239,9 +236,6 @@ class ComposeIntegrationTests(unittest.TestCase):
         source: "${CLI_DIR:?required}"
         target: /opt/cli
       - type: bind
-        source: "${LOCAL_REGISTRY:?required}"
-        target: /opt/local-registry3
-      - type: bind
         source: "${PROTON_DIR:?required}"
         target: /proton/GE-Proton11-11-x86_64
       - type: bind
@@ -266,7 +260,7 @@ class ComposeIntegrationTests(unittest.TestCase):
             self._compose_fixture(root, game_path)
             env = os.environ.copy()
             for key in (
-                "CHIV_GAME", "CLI_DIR", "LOCAL_REGISTRY", "PROTON_DIR",
+                "CHIV_GAME", "CLI_DIR", "PROTON_DIR",
                 "COMPAT_CLIENT_DIR", "LEGENDARY_CONFIG", "CHIV_PREFIX",
                 "CHIV_LOCALAPPDATA", "SERVER_ADVERTISE_IP", "GAME_PORT",
                 "PING_PORT", "QUERY_PORT", "RCON_PORT", "DISPLAY_NUM",
@@ -299,7 +293,6 @@ class ComposeIntegrationTests(unittest.TestCase):
                 "SERVER_ADVERTISE_IP": "2606:4700::1111",
                 "CHIV_GAME": special_game,
                 "CLI_DIR": str(root / "cli"),
-                "LOCAL_REGISTRY": str(root / "registry"),
                 "PROTON_DIR": str(root / "proton"),
                 "COMPAT_CLIENT_DIR": str(root / "compat"),
                 "LEGENDARY_CONFIG": str(root / "legendary"),
@@ -315,7 +308,7 @@ class ComposeIntegrationTests(unittest.TestCase):
             env_file.chmod(0o600)
             env = os.environ.copy()
             for key in (
-                "CHIV_GAME", "CLI_DIR", "LOCAL_REGISTRY", "PROTON_DIR",
+                "CHIV_GAME", "CLI_DIR", "PROTON_DIR",
                 "COMPAT_CLIENT_DIR", "LEGENDARY_CONFIG", "CHIV_PREFIX",
                 "CHIV_LOCALAPPDATA", "SERVER_ADVERTISE_IP", "GAME_PORT",
                 "PING_PORT", "QUERY_PORT", "RCON_PORT", "DISPLAY_NUM",
@@ -352,7 +345,7 @@ class ComposeIntegrationTests(unittest.TestCase):
                 env = os.environ.copy()
                 for key in (
                     "SERVER_ADVERTISE_IP", "CHIV_GAME", "CLI_DIR",
-                    "LOCAL_REGISTRY", "PROTON_DIR", "COMPAT_CLIENT_DIR",
+                    "PROTON_DIR", "COMPAT_CLIENT_DIR",
                     "LEGENDARY_CONFIG",
                 ):
                     env.pop(key, None)

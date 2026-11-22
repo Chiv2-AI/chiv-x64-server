@@ -18,7 +18,6 @@ SERVICE_NAME = "chiv-x64"
 MOUNT_TARGETS = {
     "/game": "CHIV_GAME",
     "/opt/cli": "CLI_DIR",
-    "/opt/local-registry3": "LOCAL_REGISTRY",
     "/proton/GE-Proton11-11-x86_64": "PROTON_DIR",
     "/proton-compat-client": "COMPAT_CLIENT_DIR",
     "/opt/legendary": "LEGENDARY_CONFIG",
@@ -46,7 +45,6 @@ INTERPOLATION_ENVIRONMENT_KEYS = {
     "DISPLAY_NUM",
     "CHIV_GAME",
     "CLI_DIR",
-    "LOCAL_REGISTRY",
     "PROTON_DIR",
     "COMPAT_CLIENT_DIR",
     "LEGENDARY_CONFIG",
@@ -224,7 +222,6 @@ def validate_inputs(config: dict[str, Any]) -> None:
     required_paths = (
         "CHIV_GAME",
         "CLI_DIR",
-        "LOCAL_REGISTRY",
         "PROTON_DIR",
         "COMPAT_CLIENT_DIR",
         "LEGENDARY_CONFIG",

@@ -37,6 +37,15 @@ class Finding:
     def passed(self, message: str) -> None:
         self.passes.append(message)
 
+    def record(self, status: str, message: str) -> None:
+        """Route a ("pass"|"error"|"unknown") status to the right bucket."""
+        if status == "pass":
+            self.passed(message)
+        elif status == "error":
+            self.error(message)
+        else:  # "unknown" (and any unexpected status) is a non-fatal manual check
+            self.warning(message)
+
 
 def parse_user_id(value: str) -> tuple[int, int] | None:
     pieces = value.split(":", 1)
@@ -244,7 +253,7 @@ def own_container_processes(
 
 def _check_content(config: dict[str, Any], finding: Finding) -> None:
     paths = {key: Path(value).expanduser() for key, value in config["paths"].items()}
-    for variable in ("CHIV_GAME", "LOCAL_REGISTRY", "COMPAT_CLIENT_DIR"):
+    for variable in ("CHIV_GAME", "COMPAT_CLIENT_DIR"):
         path = paths[variable]
         try:
             next(path.iterdir())
@@ -253,7 +262,6 @@ def _check_content(config: dict[str, Any], finding: Finding) -> None:
         else:
             next_step = {
                 "CHIV_GAME": "run Heroic/Legendary verification before relying on this install",
-                "LOCAL_REGISTRY": "confirm its selected DLL metadata and CLI compatibility (chiv-4f7.9)",
                 "COMPAT_CLIENT_DIR": "confirm its CLI-specific files and provenance (chiv-4f7.9)",
             }[variable]
             finding.warning(
@@ -287,7 +295,7 @@ def _check_content(config: dict[str, Any], finding: Finding) -> None:
             finding.warning("Proton prefix ACL read access is unknown.")
 
     for variable in (
-        "CHIV_GAME", "CLI_DIR", "LOCAL_REGISTRY", "PROTON_DIR",
+        "CHIV_GAME", "CLI_DIR", "PROTON_DIR",
         "COMPAT_CLIENT_DIR", "LEGENDARY_CONFIG",
     ):
         access = container_access(paths[variable], uid, gid, 0b101)
@@ -328,16 +336,6 @@ def _check_content(config: dict[str, Any], finding: Finding) -> None:
         finding.warning(
             "LEGENDARY_CONFIG ACL or large-tree permissions could not be fully "
             f"verified for UID:GID {uid}:{gid}."
-        )
-
-    registry_access = tree_container_access(paths["LOCAL_REGISTRY"], uid, gid)
-    if registry_access is False:
-        finding.error(
-            f"LOCAL_REGISTRY contains unreadable files for UID:GID {uid}:{gid}."
-        )
-    elif registry_access is None:
-        finding.warning(
-            f"LOCAL_REGISTRY ACL access could not be fully verified for UID:GID {uid}:{gid}."
         )
 
     for variable in ("CHIV_PREFIX", "CHIV_LOCALAPPDATA"):
@@ -500,7 +498,7 @@ def run_preflight(root: Path) -> tuple[Finding, dict[str, Any] | None]:
             finding.error("Could not read local IPv6 interface addresses with iproute2.")
         else:
             status, message = check_ipv6_address(advertised, result.stdout)
-            getattr(finding, status)(message)
+            finding.record(status, message)
 
     if not shutil.which("ss"):
         finding.error(
@@ -518,7 +516,7 @@ def run_preflight(root: Path) -> tuple[Finding, dict[str, Any] | None]:
             for status, message in classify_port_conflicts(
                 config["ports"], parse_ss_listeners(result.stdout), own_pids
             ):
-                getattr(finding, status)(message)
+                finding.record(status, message)
             _check_display(config, own_xvfb_pids, finding)
 
     if config["container_name"] and not re.fullmatch(
