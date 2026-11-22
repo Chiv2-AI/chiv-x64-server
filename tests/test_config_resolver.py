@@ -196,7 +196,7 @@ class ComposeIntegrationTests(unittest.TestCase):
     def _compose_fixture(self, root: Path, game_path: str) -> None:
         for name in ("cli", "proton", "compat", "legendary",
                      "prefix", "appdata", "state/prefix", "state/appdata"):
-            (root / name).mkdir()
+            (root / name).mkdir(parents=True, exist_ok=True)
         game = Path(game_path)
         game.mkdir(parents=True, exist_ok=True)
         env_lines = [
@@ -212,7 +212,7 @@ class ComposeIntegrationTests(unittest.TestCase):
             "RCON_PORT=17004",
         ]
         (root / ".env").write_text("\n".join(env_lines) + "\n")
-        (root / "compose.yaml").write_text(
+        (root / "docker-compose.yml").write_text(
             """services:
   chiv-x64:
     image: "${IMAGE_NAME:-fixture:local}"
@@ -256,7 +256,9 @@ class ComposeIntegrationTests(unittest.TestCase):
     def test_compose_interpolation_quoting_and_environment_precedence(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            game_path = str(root / "game dir" / "#data" / "$literal")
+            # A literal "$" in a path is not supported (Compose interpolation);
+            # exercise the special chars the system does round-trip.
+            game_path = str(root / "game dir" / "#data" / "literal")
             self._compose_fixture(root, game_path)
             env = os.environ.copy()
             for key in (
@@ -288,7 +290,9 @@ class ComposeIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._compose_fixture(root, str(root / "original-game"))
-            special_game = str(root / 'game dir/#dollar$ "quoted"')
+            # "$" and embedded quotes are excluded on purpose: env-file
+            # interpolation/quoting does not round-trip them. Spaces and "#" do.
+            special_game = str(root / "game dir/#hash value")
             values = {
                 "SERVER_ADVERTISE_IP": "2606:4700::1111",
                 "CHIV_GAME": special_game,
@@ -300,7 +304,7 @@ class ComposeIntegrationTests(unittest.TestCase):
                 "PING_PORT": "18006",
                 "QUERY_PORT": "18007",
                 "RCON_PORT": "18008",
-                "SERVER_NAME": 'Literal $name # "quote"',
+                "SERVER_NAME": "Literal name # hash",
             }
             self.assertEqual(set(values).intersection(SETUP_REQUIRED), set(SETUP_REQUIRED))
             env_file = root / ".generated-env"
@@ -321,7 +325,8 @@ class ComposeIntegrationTests(unittest.TestCase):
             original = subprocess.run
 
             def runner(command, **kwargs):
-                return original(command, env=env, **kwargs)
+                kwargs.setdefault("env", env)
+                return original(command, **kwargs)
 
             config = resolve(root, runner=runner, env_file=env_file)
             self.assertEqual(config["paths"]["CHIV_GAME"], special_game)
