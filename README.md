@@ -59,6 +59,10 @@ sudo chown -R 1000:1000 /srv/chiv-x64-server
 chmod 700 /srv/chiv-x64-server/legendary-config
 ```
 
+If you do not have permission to create a directory under `/srv`, clone the
+repository and keep its private `state/` under a directory owned by your
+operator account instead; do not use `sudo` to run the repository or container.
+
 Do not run the Docker service as root to work around permissions. Keep
 authentication and Proton-prefix data private. Prefix and AppData state
 defaults to `./state` in this checkout. Do not serve that directory over Samba
