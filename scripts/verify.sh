@@ -19,7 +19,7 @@ if ! docker inspect --format '{{.State.Running}}' "$container_id" | grep -qx tru
 fi
 
 printf '\nServer process:\n'
-docker exec "$container_id" sh -lc 'ps -eo pid,args | grep -E "[C]hivalry2-Win64-Shipping.exe|[U]nchainedLauncher.CLI server" || true'
+docker exec "$container_id" sh -lc 'ps -eo pid,comm | grep -E "Chivalry2-Win64|UnchainedLauncher|Xvfb" || true'
 
 printf '\nExpected UDP listeners (host view):\n'
 if command -v ss >/dev/null 2>&1; then
