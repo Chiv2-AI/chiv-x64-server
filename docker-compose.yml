@@ -13,8 +13,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: chiv-x64-native:local
-    container_name: chiv-x64
+    image: "${IMAGE_NAME:-chiv-x64-native:local}"
+    container_name: "${CONTAINER_NAME:-chiv-x64}"
     user: "1000:1000"
     network_mode: host
     restart: on-failure
@@ -73,7 +73,7 @@ services:
       RCON_PORT: "${RCON_PORT:-9001}"
     volumes:
       # Game files and tooling you supply (see README). Marked :? so compose fails fast if unset.
-      - "${CHIV_GAME:?Set CHIV_GAME to your Chivalry 2 install}:/game"
+      - "${CHIV_GAME:?Set CHIV_GAME to your Chivalry 2 install}:/game:ro"
       - "${CLI_DIR:?Set CLI_DIR to your UnchainedLauncher.CLI folder}:/opt/cli:ro"
       - "${LOCAL_REGISTRY:?Set LOCAL_REGISTRY to your local plugin registry}:/opt/local-registry3:ro"
       - "${PROTON_DIR:?Set PROTON_DIR to your GE-Proton build}:/proton/GE-Proton11-11-x86_64:ro"

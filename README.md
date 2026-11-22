@@ -1,10 +1,10 @@
 # chiv-x64-server
 
 Reusable **native x86_64** Docker setup for the Chivalry 2 dedicated server,
-launched through GE-Proton and `UnchainedLauncher.CLI`. This is the x64
-counterpart to the Orin/ARM setup; it does not use Box64 or FEX.
+launched through GE-Proton and `UnchainedLauncher.CLI`. It runs without CPU
+emulation.
 
-The tested nihilinux deployment uses **Epic Games Store (EGS)** files and
+The reference deployment uses **Epic Games Store (EGS)** files and
 Heroic/Legendary authentication. The repository contains scaffolding only: no
 game files, Proton build, launcher bundle, plugin registry, or credentials.
 Steam is not the tested login path for this deployment. In particular,
@@ -48,27 +48,27 @@ install packages, create accounts, alter firewall settings, or use `sudo`.
 
 ### Step 2: prepare directories and permissions
 
-The example layout uses `/srv/chiv-x64`. The Compose service runs as UID/GID
+The example layout uses `/srv/chiv-x64-server`. The Compose service runs as UID/GID
 `1000:1000`; verify the intended operator account matches, or deliberately
 adjust the Compose `user` setting and ownership together:
 
 ```bash
 id
-sudo mkdir -p /srv/chiv-x64/{game,cli,proton,legendary-config,prefix,appdata}
-sudo chown -R 1000:1000 /srv/chiv-x64
-chmod 700 /srv/chiv-x64/legendary-config
+sudo mkdir -p /srv/chiv-x64-server/{game,cli,proton,legendary-config}
+sudo chown -R 1000:1000 /srv/chiv-x64-server
+chmod 700 /srv/chiv-x64-server/legendary-config
 ```
 
 Do not run the Docker service as root to work around permissions. Keep
-authentication and Proton-prefix data private. The `.env.example` points the
-prefix and AppData mounts at `/srv/chiv-x64`; alternatively, the Compose
-defaults put persistent state under `./state` in this checkout. Do not serve
-either location over Samba or commit it.
+authentication and Proton-prefix data private. Prefix and AppData state
+defaults to `./state` in this checkout. Do not serve that directory over Samba
+or commit it. If using `/srv` for state, create separate prefix and AppData
+directories and assign them to UID/GID `1000:1000`.
 
 ### Step 3: stage and verify the EGS game
 
-The validated deployment reused an existing EGS installation, transferred it
-to `/srv/chiv-x64/game`, imported it into Heroic/Legendary, and repaired about
+The reference deployment reused an existing EGS installation, transferred it
+to a dedicated game directory, imported it into Heroic/Legendary, and repaired about
 1.06 GiB of missing files rather than redownloading the full game. The source
 was a development install, so the transfer was based on an audited/filtered
 file set. Do not blindly copy Windows credentials, registry state, UE4SS or
@@ -77,12 +77,12 @@ with the EGS toolchain and record any repair/download that occurs.
 
 For a transfer, first produce/review a file manifest for the source install;
 exclude credentials, registry state, and local development artifacts. Then
-copy the reviewed files to `/srv/chiv-x64/game` using a resumable tool such as
+copy the reviewed files to the configured `CHIV_GAME` directory using a resumable tool such as
 `rsync`, preserving the source until verification completes. The exact manifest
 is source-install-specific, so this repo intentionally does not ship a blanket
 copy command that could import private or irrelevant files.
 
-In Heroic/Legendary, import the copied install at `/srv/chiv-x64/game`, run
+In Heroic/Legendary, import the copied install at the configured `CHIV_GAME`, run
 verification/repair, and wait for it to finish. Continue only after the
 platform tool reports the install valid; record any files it had to download.
 
@@ -94,22 +94,22 @@ browser cookies, Windows credentials, or another machine's auth state.
 
 In Heroic, select/install the intended GE-Proton release and use the CLI
 branch's supported Proton compatibility client. Launch the imported game once
-through that runner so Heroic creates the compatibility prefix. The tested
-nihilinux layout used:
+through that runner so Heroic creates the compatibility prefix. The reference
+layout used:
 
-- Game: `/srv/chiv-x64/game`
-- GE-Proton: `/srv/chiv-x64/proton/GE-Proton11-11-x86_64`
-- Proton compatibility client: `/srv/chiv-x64/proton/compat-client`
-- Prefix: `/srv/chiv-x64/prefix`
+- Game: `/srv/chiv-x64-server/game`
+- GE-Proton: `/srv/chiv-x64-server/proton/GE-Proton11-11-x86_64`
+- Proton compatibility client: `/srv/chiv-x64-server/proton/compat-client`
+- Prefix: `/srv/chiv-x64-server/prefix`
 - Legendary config: the operator's private Legendary configuration directory
 
 Before the first launch, configure Heroic's compatibility-data/prefix location
-for this game to `/srv/chiv-x64/prefix`. Confirm that the initialized prefix
-contains `/srv/chiv-x64/prefix/pfx/system.reg`.
+for this game to `/srv/chiv-x64-server/prefix`. Confirm that the initialized
+prefix contains `/srv/chiv-x64-server/prefix/pfx/system.reg`.
 
-Locate the Legendary configuration created by Heroic (the deployed host used
-`/home/nihi/.config/legendary`). Set `LEGENDARY_CONFIG` to that actual directory,
-or copy its contents to the private `/srv/chiv-x64/legendary-config` directory
+Locate the Legendary configuration created by Heroic on your host. Set
+`LEGENDARY_CONFIG` to that actual directory, or copy its contents to the
+private `/srv/chiv-x64-server/legendary-config` directory
 and point the variable there. Do not leave it empty or copy it into this Git
 checkout. Preserve private permissions/ownership and ensure UID 1000 can read
 it. Never paste login output, device codes, tokens, or credential files into
@@ -163,11 +163,36 @@ assume the layout above. Required values:
 | `PROTON_DIR` | GE-Proton directory containing `proton` |
 | `COMPAT_CLIENT_DIR` | Proton compatibility-client directory passed as `--steam-path` |
 | `LEGENDARY_CONFIG` | Private directory containing the host's Legendary/EGS configuration |
+| `CONTAINER_NAME` | Optional unique Docker container name when sharing a Docker host |
+| `IMAGE_NAME` | Optional unique Docker image tag when sharing a Docker host |
 
-Optional server name, ports, display, prefix, and AppData overrides are listed
-in `.env.example`. Do not put passwords or tokens in `.env`; the Legendary
+Optional server name, ports, display, prefix, AppData, image, and container
+name overrides are listed in `.env.example`. When sharing a Docker host with
+another deployment, set unique `CONTAINER_NAME` and `IMAGE_NAME` values.
+Writable prefix and AppData paths must be exclusive to this deployment; never
+share an active Proton prefix between containers. Game, Proton, CLI, and
+compatibility-client inputs may be reused only when compatible; prefer
+read-only mounts or isolated copies where the application might write.
+Do not put passwords or tokens in `.env`; the Legendary
 configuration path is a path to private credentials, not a place to paste
 credentials themselves.
+
+### Reusing files from another installation
+
+Existing game files are mounted read-only by this Compose profile, and the CLI,
+Proton, compatibility client, and local registry mounts are also read-only.
+You may point those variables at compatible existing paths instead of copying
+large inputs. Keep the Legendary config, Proton prefix, and AppData separate:
+copy the auth config into a private, Git-ignored directory if needed, and give
+this Compose project its own writable prefix and AppData paths. Never mount the
+same active prefix writable into two containers.
+
+Host networking means container/image names do not isolate network ports.
+Before starting, inspect existing containers and host listeners. Do not start
+this service while another service is listening on the configured game, ping,
+or query ports. This setup is not designed to run a second instance alongside
+another server on the default ports; do not stop or recreate an existing
+service just to free them.
 
 Validate before launch:
 
@@ -201,8 +226,8 @@ Docker port publishing is not used. Allow only the ports you intend to expose:
 | 7071 | UDP | A2S query |
 | 9001 | TCP | RCON; keep loopback-only or restrict to a trusted VPN/LAN |
 
-Keep SSH administrative access LAN/VPN-only. The deployed nihilinux UFW policy
-used default-deny incoming, allowed LAN SSH/Samba, and exposed UDP 7777, 3075,
+Keep SSH administrative access LAN/VPN-only. A reference UFW policy uses
+default-deny incoming, allows LAN SSH/Samba, and exposes UDP 7777, 3075,
 and 7071. Review the host's existing policy and replace the example LAN range
 before applying any commands. For UFW, confirm IPv6 filtering is enabled
 (`IPV6=yes` in `/etc/default/ufw`) and preserve essential
@@ -303,8 +328,8 @@ docker exec chiv-x64 ps -eo args
   UID/GID `1000:1000`.
 - **Container repeatedly exits:** inspect `docker compose logs --tail=200`.
   Check the CLI build against the current plugin-registry JSON schema before
-  changing launch flags. A past nihilinux failure was caused by registry
-  compatibility, not XKB warnings.
+  changing launch flags. A registry serialization/schema mismatch can prevent
+  startup; distinguish such fatal errors from non-fatal XKB warnings.
 - **Authentication or launch arguments fail:** check the private Legendary
   configuration and initialized Proton prefix on the host. Do not copy a
   Windows prefix/credential store as a shortcut.
@@ -320,7 +345,7 @@ docker exec chiv-x64 ps -eo args
 
 ## Optional: LAN Samba shares
 
-The nihilinux host exposed only the game and AppData directories over
+The reference deployment exposed only the game and AppData directories over
 authenticated, LAN-restricted Samba shares. Do not share the Proton prefix,
 Proton binaries, Legendary/Heroic configuration, CLI bundle, logs, or the
 repository's `.env`. Configure and validate Samba on the host separately;
@@ -343,5 +368,5 @@ excludes the expected local data paths; review it before adding new inputs.
 
 - Project checklist: `docs/IPv6 server setup checklist.md` in the source
   repository.
-- Beads epic `chiv-8si.9` and its completed setup tasks record the verified
-  nihilinux EGS deployment steps and outcomes.
+- Beads epic `chiv-8si.9` and its completed setup tasks record the reference
+  EGS deployment steps and outcomes.
