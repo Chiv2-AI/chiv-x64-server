@@ -1,0 +1,86 @@
+# Reusable x86_64 Chivalry 2 dedicated-server compose (Proton + UnchainedLauncher.CLI).
+#
+# You must supply these yourself (see README) — none are in this repo:
+#   - the Chivalry 2 game files (CHIV_GAME)
+#   - a GE-Proton build          (PROTON_DIR, COMPAT_CLIENT_DIR)
+#   - the UnchainedLauncher.CLI  (CLI_DIR)
+#   - a plugin registry          (LOCAL_REGISTRY)
+#   - your legendary/EGS config with credentials (LEGENDARY_CONFIG) — never commit it
+#
+# Copy .env.example to .env and set at least SERVER_ADVERTISE_IP.
+services:
+  chiv-x64:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: chiv-x64-native:local
+    container_name: chiv-x64
+    user: "1000:1000"
+    network_mode: host
+    restart: on-failure
+    stop_signal: SIGINT
+    ulimits:
+      core:
+        soft: -1
+        hard: -1
+    entrypoint: ["bash", "-c"]
+    command:
+      - >-
+        umask 000;
+        mkdir -p /tmp/chiv-dotnet /tmp/.cache;
+        pkill -TERM -x Xvfb >/dev/null 2>&1 || true;
+        sleep 1;
+        pkill -KILL -x Xvfb >/dev/null 2>&1 || true;
+        rm -f /tmp/.X$$DISPLAY_NUM-lock /tmp/.X11-unix/X$$DISPLAY_NUM;
+        Xvfb :$$DISPLAY_NUM -screen 0 1280x1024x24 -nolisten tcp -terminate &
+        python3 /opt/ipv6-udp-relay.py --listen-address "$$SERVER_ADVERTISE_IP"
+        --map "$$PING_PORT:$$PING_PORT" --map "$$QUERY_PORT:$$QUERY_PORT"
+        >/tmp/ipv6-udp-relay.log 2>&1 &
+        exec /opt/cli/UnchainedLauncher.CLI server
+        --chivalry2-path /game --platform EGS
+        --proton-path /proton/GE-Proton11-11-x86_64/proton
+        --compat-data-path /proton-prefix
+        --steam-path /proton-compat-client
+        --saved-dir-suffix UnchainedX64
+        --name "$$SERVER_NAME"
+        --starting-map TDM_Courtyard
+        --game-port "$$GAME_PORT" --ping-port "$$PING_PORT"
+        --query-port "$$QUERY_PORT" --rcon-port "$$RCON_PORT"
+        --server-browser-backend "$$SERVER_BROWSER_BACKEND"
+        --register --no-tui --allow-unstable-plugin --no-plugin-update
+        --add-registry local:/opt/local-registry3
+        --dll Chiv2-Community/UnchainedPlugin:v1.0.0-debug.3
+        -- --use-ipv6 -ini:Engine:[SystemSettings]:net.DisableIPv6=0
+        -ini:Engine:[SystemSettings]:net.IsIPv6Supported=True
+        -ini:Engine:[/Script/OnlineSubsystemUtils.IpNetDriver]:bAllowIPv6Fallback=True
+        -MULTIHOME=$$SERVER_ADVERTISE_IP
+        -useallavailablecores
+    environment:
+      HOME: /tmp
+      DOTNET_BUNDLE_EXTRACT_BASE_DIR: /tmp/chiv-dotnet
+      XDG_CACHE_HOME: /tmp/.cache
+      LEGENDARY_CONFIG_PATH: /opt/legendary
+      DISPLAY: ":${DISPLAY_NUM:-99}"
+      DISPLAY_NUM: "${DISPLAY_NUM:-99}"
+      SERVER_NAME: "${SERVER_NAME:-x64 EGS CLI server}"
+      SERVER_ADVERTISE_IP: "${SERVER_ADVERTISE_IP:?Set SERVER_ADVERTISE_IP in .env (the host's stable global IPv6 or advertised IP)}"
+      SERVER_BROWSER_BACKEND: "${SERVER_BROWSER_BACKEND:-https://servers.polehammer.net}"
+      GAME_PORT: "${GAME_PORT:-7777}"
+      PING_PORT: "${PING_PORT:-3075}"
+      QUERY_PORT: "${QUERY_PORT:-7071}"
+      RCON_PORT: "${RCON_PORT:-9001}"
+    volumes:
+      # Game files and tooling you supply (see README). Marked :? so compose fails fast if unset.
+      - "${CHIV_GAME:?Set CHIV_GAME to your Chivalry 2 install}:/game"
+      - "${CLI_DIR:?Set CLI_DIR to your UnchainedLauncher.CLI folder}:/opt/cli:ro"
+      - "${LOCAL_REGISTRY:?Set LOCAL_REGISTRY to your local plugin registry}:/opt/local-registry3:ro"
+      - "${PROTON_DIR:?Set PROTON_DIR to your GE-Proton build}:/proton/GE-Proton11-11-x86_64:ro"
+      - "${COMPAT_CLIENT_DIR:?Set COMPAT_CLIENT_DIR to your Proton compat client}:/proton-compat-client:ro"
+      - "${LEGENDARY_CONFIG:?Set LEGENDARY_CONFIG to your legendary/EGS config dir (holds credentials; never commit)}:/opt/legendary"
+      # State created locally; safe defaults under ./state (git-ignored).
+      - "${CHIV_PREFIX:-./state/prefix}:/proton-prefix"
+      - "${CHIV_LOCALAPPDATA:-./state/appdata}:/proton-prefix/pfx/drive_c/users/steamuser/AppData/Local/Chivalry 2"
+      # The relay ships with this repo.
+      - "./ipv6-udp-relay.py:/opt/ipv6-udp-relay.py:ro"
+    stdin_open: true
+    tty: true

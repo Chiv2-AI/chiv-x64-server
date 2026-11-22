@@ -1,0 +1,19 @@
+# Secrets and local config
+.env
+
+# Things you supply; never committed here (no game files, proton, launcher, credentials)
+game/
+proton/
+prefix/
+appdata/
+cli/
+legendary-config/
+local-registry*/
+state/
+logs/
+*.log
+
+# Credentials / keys, just in case
+*credential*
+*.key
+*.token
