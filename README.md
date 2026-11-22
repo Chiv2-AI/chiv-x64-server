@@ -320,6 +320,27 @@ The helper reports only selected readiness-marker presence, not raw log lines.
 Review logs privately if further diagnosis is needed and redact authentication
 data before sharing them.
 
+### Log locations
+
+The game/plugin file logs are written under the host path configured by
+`CHIV_LOCALAPPDATA`, normally:
+
+```text
+Saved_UnchainedX64/Logs/unchained.log
+Saved_UnchainedX64/Logs/kismet.log
+```
+
+For the default state path, these are under
+`./state/appdata/Saved_UnchainedX64/Logs/`. If `CHIV_LOCALAPPDATA` points
+elsewhere, look beneath that configured host directory. When reusing or copying
+AppData from another installation, existing log files are copied too; they may
+contain earlier runs.
+
+The container's stdout/stderr is separate and can be viewed with
+`docker compose logs` from the repository directory. Treat raw game/container
+logs as private and inspect them before sharing; server registration details
+may appear there.
+
 Useful manual checks:
 
 ```bash
