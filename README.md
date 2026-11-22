@@ -72,3 +72,7 @@ See [configuration](docs/configuration.md),
 [operations](docs/operations.md), and
 [troubleshooting](docs/troubleshooting.md) for details. For code/test work, see
 [development evidence](docs/development.md) and the repository-local `AGENTS.md`.
+
+Optional, for development: [running the UE4SS live bridge on this server](docs/ue4ss-live-bridge.md)
+(execute Python in the live game from the host; modifies the game dir and the
+service).
