@@ -24,6 +24,8 @@ services:
         soft: -1
         hard: -1
     entrypoint: ["bash", "-c"]
+    # IPv6-specific: this command binds the relay and passes IPv6 game/CLI flags;
+    # gameplay remains on the native game socket.
     command:
       - >-
         umask 000;

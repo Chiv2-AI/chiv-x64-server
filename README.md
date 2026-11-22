@@ -1,76 +1,347 @@
 # chiv-x64-server
 
-Reusable **x86_64** Docker setup for a headless **Chivalry 2 dedicated server**,
-run through **GE-Proton** and the **UnchainedLauncher.CLI**. It is the native-x64
-counterpart to the Orin/ARM server setup.
+Reusable **native x86_64** Docker setup for the Chivalry 2 dedicated server,
+launched through GE-Proton and `UnchainedLauncher.CLI`. This is the x64
+counterpart to the Orin/ARM setup; it does not use Box64 or FEX.
 
-This repo ships **only the scaffolding** — the Dockerfile, the compose file, an
-IPv6→IPv4 UDP relay, and docs. It contains **no game files, no Proton build, no
-launcher binary, and no credentials**; you supply those locally and point the
-compose at them via `.env`.
+The tested nihilinux deployment uses **Epic Games Store (EGS)** files and
+Heroic/Legendary authentication. The repository contains scaffolding only: no
+game files, Proton build, launcher bundle, plugin registry, or credentials.
+Steam is not the tested login path for this deployment. In particular,
+`--steam-path` in the CLI command refers to its Proton compatibility-client
+input; it does not mean that an interactive Steam login is needed.
 
-## What you supply (not in this repo)
+## 1. Prerequisites
 
-| Thing | `.env` key | Notes |
-|---|---|---|
-| Chivalry 2 install | `CHIV_GAME` | e.g. downloaded with `legendary` (EGS) |
-| GE-Proton build | `PROTON_DIR` | the compose expects `GE-Proton11-11-x86_64`; change the path in `docker-compose.yml` for another version |
-| Proton compat client | `COMPAT_CLIENT_DIR` | the `--steam-path` compat client |
-| UnchainedLauncher.CLI | `CLI_DIR` | from Chiv2-Community; holds `UnchainedLauncher.CLI` |
-| Plugin registry | `LOCAL_REGISTRY` | local registry that provides `UnchainedPlugin` |
-| Legendary/EGS config | `LEGENDARY_CONFIG` | **holds Epic credentials — never commit** |
+- An x86_64 Linux host with enough free disk space for the game, Proton, prefix,
+  and persistent state. The deployed host was Ubuntu-based; other distributions
+  may need package-name or firewall-command adjustments.
+- Docker Engine and Docker Compose v2, usable by the account that will run the
+  server. The server container runs as UID/GID `1000:1000` by default.
+- A host address to advertise. **IPv6-specific:** the supplied Compose profile
+  is configured for IPv6 and requires the host's current stable global IPv6
+  address, not a temporary/privacy address.
+- EGS game files, an initialized GE-Proton installation and compatibility
+  client, a Linux `UnchainedLauncher.CLI` bundle, and a local plugin registry.
+- A fresh Epic/Legendary authentication on the host. Do not copy credentials
+  from another machine or put credentials, tokens, or private config in this
+  repository.
 
-## Quick start
+### Step 1: verify the host
+
+On Ubuntu, install Docker Engine and the Compose v2 plugin using the current
+Ubuntu/Docker package instructions, then enable the daemon. Grant the intended
+operator account Docker access only if you accept that Docker access is
+effectively root-level. Do not run the game container as root to avoid
+permission setup.
+
+Run the read-only host preflight:
+
+```bash
+./scripts/prepare-host.sh
+```
+
+This checks architecture, Docker, Compose, and Docker access. It does not
+install packages, create accounts, alter firewall settings, or use `sudo`.
+
+## 2. Prepare the host directories and inputs
+
+### Step 2: prepare directories and permissions
+
+The example layout uses `/srv/chiv-x64`. The Compose service runs as UID/GID
+`1000:1000`; verify the intended operator account matches, or deliberately
+adjust the Compose `user` setting and ownership together:
+
+```bash
+id
+sudo mkdir -p /srv/chiv-x64/{game,cli,proton,legendary-config,prefix,appdata}
+sudo chown -R 1000:1000 /srv/chiv-x64
+chmod 700 /srv/chiv-x64/legendary-config
+```
+
+Do not run the Docker service as root to work around permissions. Keep
+authentication and Proton-prefix data private. The `.env.example` points the
+prefix and AppData mounts at `/srv/chiv-x64`; alternatively, the Compose
+defaults put persistent state under `./state` in this checkout. Do not serve
+either location over Samba or commit it.
+
+### Step 3: stage and verify the EGS game
+
+The validated deployment reused an existing EGS installation, transferred it
+to `/srv/chiv-x64/game`, imported it into Heroic/Legendary, and repaired about
+1.06 GiB of missing files rather than redownloading the full game. The source
+was a development install, so the transfer was based on an audited/filtered
+file set. Do not blindly copy Windows credentials, registry state, UE4SS or
+research artifacts as part of a game transfer. Import/verify the destination
+with the EGS toolchain and record any repair/download that occurs.
+
+For a transfer, first produce/review a file manifest for the source install;
+exclude credentials, registry state, and local development artifacts. Then
+copy the reviewed files to `/srv/chiv-x64/game` using a resumable tool such as
+`rsync`, preserving the source until verification completes. The exact manifest
+is source-install-specific, so this repo intentionally does not ship a blanket
+copy command that could import private or irrelevant files.
+
+In Heroic/Legendary, import the copied install at `/srv/chiv-x64/game`, run
+verification/repair, and wait for it to finish. Continue only after the
+platform tool reports the install valid; record any files it had to download.
+
+### Step 4: authenticate Epic and initialize Proton
+
+Install/open Heroic on the host and use its interactive Epic login flow for the
+intended account. Confirm the account is authenticated in Heroic; do not copy
+browser cookies, Windows credentials, or another machine's auth state.
+
+In Heroic, select/install the intended GE-Proton release and use the CLI
+branch's supported Proton compatibility client. Launch the imported game once
+through that runner so Heroic creates the compatibility prefix. The tested
+nihilinux layout used:
+
+- Game: `/srv/chiv-x64/game`
+- GE-Proton: `/srv/chiv-x64/proton/GE-Proton11-11-x86_64`
+- Proton compatibility client: `/srv/chiv-x64/proton/compat-client`
+- Prefix: `/srv/chiv-x64/prefix`
+- Legendary config: the operator's private Legendary configuration directory
+
+Before the first launch, configure Heroic's compatibility-data/prefix location
+for this game to `/srv/chiv-x64/prefix`. Confirm that the initialized prefix
+contains `/srv/chiv-x64/prefix/pfx/system.reg`.
+
+Locate the Legendary configuration created by Heroic (the deployed host used
+`/home/nihi/.config/legendary`). Set `LEGENDARY_CONFIG` to that actual directory,
+or copy its contents to the private `/srv/chiv-x64/legendary-config` directory
+and point the variable there. Do not leave it empty or copy it into this Git
+checkout. Preserve private permissions/ownership and ensure UID 1000 can read
+it. Never paste login output, device codes, tokens, or credential files into
+issue notes, logs, or Git.
+
+**No VNC or Steam login is part of the verified EGS instructions here.** If a
+different x64 Steam deployment is desired, document and validate it as a
+separate workflow instead of treating it as a prerequisite for this one.
+
+### Step 5: install the CLI bundle and plugin registry
+
+Place the Linux `UnchainedLauncher.CLI` bundle in the directory configured by
+`CLI_DIR`; it must contain the `UnchainedLauncher.CLI` executable. The deployed
+bundle was built from the `server-cli` branch and included its native Proton
+helper. Obtain a trusted Linux bundle built from
+[UnchainedLauncher `server-cli`](https://github.com/Chiv2-Community/UnchainedLauncher/tree/server-cli);
+this repository does not build or publish that bundle. Confirm
+`UnchainedLauncher.CLI server --help` runs before continuing. Use a CLI build
+compatible with the current game registry format.
+
+The compatibility-client directory passed as `COMPAT_CLIENT_DIR` must contain
+the client files expected by that CLI build. It is not a Steam account or
+interactive login. Obtain it from the same trusted CLI/Proton deployment inputs
+and confirm UID 1000 can read it; this repository does not bootstrap or
+authenticate Steam.
+
+Provide the plugin registry directory at `LOCAL_REGISTRY`, containing the
+plugin release referenced by `--dll` in `docker-compose.yml`. The validated deployment used a
+locally published `UnchainedPlugin` build compatible with the CLI and IPv6
+registration behavior. Keep the registry read-only in the container.
+
+## 3. Configure the deployment
+
+### Step 6: set and validate `.env`
+
+From this repository:
 
 ```bash
 cp .env.example .env
-# edit .env: set SERVER_ADVERTISE_IP and the paths above
-docker compose build
-docker compose up          # host networking; Ctrl-C sends SIGINT (clean stop)
 ```
 
-The container runs an `Xvfb` display, starts the IPv6 UDP relay for the ping and
-query ports, then launches `UnchainedLauncher.CLI server` against `/game` with
-`UnchainedPlugin`.
+Edit `.env` and set the host's paths and advertised address. The example values
+assume the layout above. Required values:
 
-## How it works
-
-- **Host networking**: the game uses UDP `7777` (game), `3075` (ping), `7071`
-  (query), and RCON on `9001` (keep RCON loopback-only in your firewall).
-- **IPv6**: `ipv6-udp-relay.py` relays the IPv6 ping/query listeners to the local
-  IPv4 sockets so the server is reachable over both. The launcher is started with
-  `--use-ipv6` and `-MULTIHOME=$SERVER_ADVERTISE_IP`. Set `SERVER_ADVERTISE_IP`
-  to the host's **stable** global IPv6 (not a temporary/privacy address).
-- **State**: Proton's prefix and the game's LocalAppData live under `./state`
-  (git-ignored) by default; override with `CHIV_PREFIX` / `CHIV_LOCALAPPDATA`.
-
-## Mount layout (host → container)
-
-| Host (`.env`) | Container |
+| Variable | Meaning |
 |---|---|
-| `CHIV_GAME` | `/game` |
-| `CLI_DIR` | `/opt/cli` (ro) |
-| `LOCAL_REGISTRY` | `/opt/local-registry3` (ro) |
-| `PROTON_DIR` | `/proton/GE-Proton11-11-x86_64` (ro) |
-| `COMPAT_CLIENT_DIR` | `/proton-compat-client` (ro) |
-| `LEGENDARY_CONFIG` | `/opt/legendary` |
-| `CHIV_PREFIX` | `/proton-prefix` |
-| `CHIV_LOCALAPPDATA` | `…/AppData/Local/Chivalry 2` |
-| `./ipv6-udp-relay.py` | `/opt/ipv6-udp-relay.py` (ro) |
+| `SERVER_ADVERTISE_IP` | Stable host address advertised by the server; raw IPv6, without brackets |
+| `CHIV_GAME` | Verified EGS game directory |
+| `CLI_DIR` | Directory containing `UnchainedLauncher.CLI` |
+| `LOCAL_REGISTRY` | Local plugin registry directory |
+| `PROTON_DIR` | GE-Proton directory containing `proton` |
+| `COMPAT_CLIENT_DIR` | Proton compatibility-client directory passed as `--steam-path` |
+| `LEGENDARY_CONFIG` | Private directory containing the host's Legendary/EGS configuration |
 
-## Firewall / IPv6 checklist
+Optional server name, ports, display, prefix, and AppData overrides are listed
+in `.env.example`. Do not put passwords or tokens in `.env`; the Legendary
+configuration path is a path to private credentials, not a place to paste
+credentials themselves.
 
-Default-deny incoming; LAN-only SSH; public UDP `7777/3075/7071`; RCON loopback
-only. Confirm the host has a stable global IPv6 and that it survives restarts.
+Validate before launch:
 
-## Security
+```bash
+./scripts/check-config.sh
+```
 
-Never commit `.env`, the legendary config, the game files, Proton, or the
-launcher. The `.gitignore` already excludes these; keep it that way.
+This checks Compose interpolation and required input directories without
+printing the fully rendered Compose configuration or secret values.
 
-## UE4SS / scripting (optional)
+## 4. Firewall and network
 
-This base runs the Unchained server stack only. To add UE4SS + the
-PythonScripting mod (for the live bridge / in-game scripting) on top, see the
-`chivalry2-workbench` docs; note a dedicated server has no local player, so the
-own-player `!ai` chat path does not apply — the live bridge does.
+### Step 7: review firewall and address configuration
+
+The committed Compose configuration is the tested **IPv6-enabled** profile.
+The IPv6 items below are only required when using IPv6; the standard IPv4 game
+port requirements still apply. This is not an automatic dual-stack toggle: for
+an IPv4-only host, do not put an IPv4 address in `SERVER_ADVERTISE_IP` and run
+the files unchanged. The IPv6 relay binds an IPv6 socket, and the CLI/Unreal
+arguments explicitly enable IPv6. An IPv4-only deployment needs a separate
+Compose configuration that disables the relay and removes the IPv6-specific
+CLI/Unreal flags, then must be validated independently.
+
+Compose uses **host networking**, so the service binds directly on the host;
+Docker port publishing is not used. Allow only the ports you intend to expose:
+
+| Port | Protocol | Purpose |
+|---:|---|---|
+| 7777 | UDP | Gameplay |
+| 3075 | UDP | Server-browser ping/beacon |
+| 7071 | UDP | A2S query |
+| 9001 | TCP | RCON; keep loopback-only or restrict to a trusted VPN/LAN |
+
+Keep SSH administrative access LAN/VPN-only. The deployed nihilinux UFW policy
+used default-deny incoming, allowed LAN SSH/Samba, and exposed UDP 7777, 3075,
+and 7071. Review the host's existing policy and replace the example LAN range
+before applying any commands. For UFW, confirm IPv6 filtering is enabled
+(`IPV6=yes` in `/etc/default/ufw`) and preserve essential
+ICMPv6/NDP/path-MTU traffic. Firewall changes require operator review and
+`sudo`; none of the scripts in this repository applies them.
+
+Example policy (adapt the LAN CIDR first; this does not open RCON):
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow from 192.168.0.0/24 to any port 22 proto tcp
+sudo ufw allow from 192.168.0.0/24 to any port 445 proto tcp
+sudo ufw allow 7777/udp
+sudo ufw allow 3075/udp
+sudo ufw allow 7071/udp
+sudo ufw status verbose
+```
+
+Enable UFW only after confirming SSH access and the existing policy; otherwise
+you may lock yourself out. Do not forward TCP 9001/RCON from the router.
+
+**IPv6-specific settings:** the CLI receives `--use-ipv6` after its argument
+separator and Unreal receives the IPv6 INI settings and `-MULTIHOME` address.
+The included relay binds the advertised IPv6 address on UDP 3075/7071 and
+forwards those ping/query packets to local IPv4 sockets; it does not relay
+gameplay. The stable global IPv6 must match `SERVER_ADVERTISE_IP`. Do not run a
+second relay on those ports. IPv6 also requires IPv6 firewall filtering and
+working ICMPv6/NDP/path-MTU traffic; the IPv4 firewall rules alone are not
+sufficient.
+
+| Setup item | IPv4-only | IPv6-enabled Compose (as supplied) |
+|---|---|---|
+| Stable global IPv6 address | Not needed | **Required**; set raw address in `SERVER_ADVERTISE_IP` |
+| `--use-ipv6` and Unreal IPv6 INI / `-MULTIHOME` args | Not needed | **Required** |
+| `ipv6-udp-relay.py` for 3075/7071 | Not needed | **Required** for IPv6 ping/query listeners |
+| IPv6 firewall and ICMPv6/NDP path | Not needed | **Required** |
+| UDP 7777/3075/7071 game/browser ports | Required as used | Required as used; allow IPv6 too |
+
+## 5. Start and stop
+
+### Step 8: build and launch
+
+Start in the foreground:
+
+```bash
+./scripts/start.sh
+```
+
+The script validates configuration and runs `docker compose up --build`.
+Use `Ctrl-C` for the configured SIGINT clean stop. To stop a detached or
+otherwise running Compose service without removing its container or state:
+
+```bash
+./scripts/stop.sh
+```
+
+The equivalent direct commands are `docker compose up --build` and
+`docker compose stop`. Avoid `docker compose down -v` or deleting `state/`
+unless you deliberately intend to remove persistent data.
+
+## 6. Verify readiness
+
+### Step 9: check local and external readiness
+
+Run:
+
+```bash
+./scripts/verify.sh
+docker compose logs --tail=100
+```
+
+The helper reports container state/restarts, matching server processes,
+host-visible UDP listeners, and recent logs. A running container or open socket
+alone does not prove that the server is ready. Confirm all of the following:
+
+- Container remains running without a growing restart count.
+- Logs show the server reached `State Up`, plugin/RCON startup, and successful
+  browser-backend registration.
+- UDP 7777, 3075, and 7071 are bound as intended.
+- A2S query and browser ping work from another machine; test gameplay
+  separately from A2S.
+- Public IPv6 tests are made from an IPv6-capable external client, not only the
+  host or LAN.
+
+Useful manual checks:
+
+```bash
+docker inspect -f 'state={{.State.Status}} restarts={{.RestartCount}}' chiv-x64
+ss -lunp | grep -E ':(7777|3075|7071)'
+docker exec chiv-x64 ps -eo args
+```
+
+## 7. Troubleshooting
+
+- **Compose rejects configuration or a mount:** rerun `./scripts/check-config.sh`;
+  check `.env` values and that every host path exists and is accessible to
+  UID/GID `1000:1000`.
+- **Container repeatedly exits:** inspect `docker compose logs --tail=200`.
+  Check the CLI build against the current plugin-registry JSON schema before
+  changing launch flags. A past nihilinux failure was caused by registry
+  compatibility, not XKB warnings.
+- **Authentication or launch arguments fail:** check the private Legendary
+  configuration and initialized Proton prefix on the host. Do not copy a
+  Windows prefix/credential store as a shortcut.
+- **Server is up but browser ping is red:** check the current advertised
+  address, UDP 3075 firewall path, relay process, and external IPv6 reachability.
+  These relay/address checks are IPv6-specific; for IPv4-only, verify the
+  direct IPv4 listener and do not run the IPv6-configured Compose unchanged.
+- **A2S works but gameplay does not:** test UDP 7777 independently; the relay
+  does not carry gameplay.
+- **Listed address is an internal proxy address:** investigate the browser
+  backend/reverse-proxy source-IP forwarding. Do not change the game host's
+  bind address based only on an internal proxy address in the listing.
+
+## Optional: LAN Samba shares
+
+The nihilinux host exposed only the game and AppData directories over
+authenticated, LAN-restricted Samba shares. Do not share the Proton prefix,
+Proton binaries, Legendary/Heroic configuration, CLI bundle, logs, or the
+repository's `.env`. Configure and validate Samba on the host separately;
+these Compose scripts do not manage Samba or its credentials.
+
+## Repository contents and security
+
+- `Dockerfile`, `docker-compose.yml`: runtime image and service definition.
+- `ipv6-udp-relay.py`: small IPv6-to-local-IPv4 UDP relay for ping/query.
+- `scripts/prepare-host.sh`: read-only host prerequisite check.
+- `scripts/check-config.sh`: required config/path preflight.
+- `scripts/start.sh`, `scripts/stop.sh`: Compose lifecycle helpers.
+- `scripts/verify.sh`: container/process/socket/log snapshot.
+
+Never commit `.env`, Legendary/Heroic credentials, game files, Proton, the
+prefix, AppData, launcher bundles, local registries, or logs. `.gitignore`
+excludes the expected local data paths; review it before adding new inputs.
+
+## References
+
+- Project checklist: `docs/IPv6 server setup checklist.md` in the source
+  repository.
+- Beads epic `chiv-8si.9` and its completed setup tasks record the verified
+  nihilinux EGS deployment steps and outcomes.
